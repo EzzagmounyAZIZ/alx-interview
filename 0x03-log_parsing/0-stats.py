@@ -1,6 +1,7 @@
 #!/usr/bin/python3
-"""Module containing script that reads stdin and computes metrics"""
+"""Module containing script that reads stdin line by line and computes metrics."""
 import sys
+import signal
 
 # Initialize a dictionary to store counts of status codes
 status_codes = {"200": 0, "301": 0, "400": 0, "401": 0,
@@ -8,50 +9,47 @@ status_codes = {"200": 0, "301": 0, "400": 0, "401": 0,
 # Initialize a variable to store the total file size
 total_size = 0
 # Initialize a counter for the number of lines processed
-total_num = 0
+line_count = 0
+
+def print_stats():
+    """Prints the accumulated metrics."""
+    print("File size: {}".format(total_size))
+    for key in sorted(status_codes.keys()):
+        if status_codes[key] > 0:
+            print("{}: {}".format(key, status_codes[key]))
 
 try:
     for line in sys.stdin:
         # Split the line into parts
-        lines = line.split()
+        parts = line.split()
 
-        # Check if the line has at least 2 elements (status code and file size)
-        if len(lines) > 1:
-            code = lines[-2]  # Second last element is the status code
-            size = lines[-1]  # Last element is the file size
+        # Check if the line has at least 7 elements (IP, -, date, request method, URL, protocol, status code, file size)
+        if len(parts) >= 7:
+            # Attempt to extract the status code and file size
+            try:
+                status_code = parts[-2]
+                file_size = int(parts[-1])
+                total_size += file_size
 
-            # Check if size is an integer, if not skip the line
-            if size.isdigit():
-                size = int(size)
-                total_size += size  # Accumulate the file size
+                if status_code in status_codes:
+                    status_codes[status_code] += 1
 
-            # Increment the status code count if it exists in the dictionary
-            if code in status_codes:
-                status_codes[code] += 1
+            except ValueError:
+                continue  # If file size is not an integer, skip the line
 
-            # Increment the line counter
-            total_num += 1
+            line_count += 1
 
-        # Every 10 lines, print the statistics
-        if total_num == 10:
-            print("File size: {}".format(total_size))
-            for k in sorted(status_codes.keys()):
-                if status_codes[k] > 0:
-                    print("{}: {}".format(k, status_codes[k]))
-            total_num = 0  # Reset the line counter after printing
+            # Every 10 lines, print the statistics
+            if line_count == 10:
+                print_stats()
+                line_count = 0
 
 except KeyboardInterrupt:
-    # In case of keyboard interruption, print the statistics
-    print("File size: {}".format(total_size))
-    for k in sorted(status_codes.keys()):
-        if status_codes[k] > 0:
-            print("{}: {}".format(k, status_codes[k]))
+    # In case of keyboard interruption (CTRL + C), print the statistics
+    print_stats()
     raise
 
 finally:
     # Always print the statistics when the program ends
-    print("File size: {}".format(total_size))
-    for k in sorted(status_codes.keys()):
-        if status_codes[k] > 0:
-            print("{}: {}".format(k, status_codes[k]))
+    print_stats()
 
