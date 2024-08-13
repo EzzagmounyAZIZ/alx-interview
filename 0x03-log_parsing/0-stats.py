@@ -1,50 +1,40 @@
 #!/usr/bin/python3
-"""
-log parsing
-"""
-
+"""Module containing script that reads stdin and computes metrics"""
 import sys
-import re
 
+status_codes = {"200": 0, "301": 0, "400": 0, "401": 0,
+                "403": 0, "404": 0, "405": 0, "500": 0}
+total_size = 0
+total_num = 0
 
-def output(log: dict) -> None:
-    """
-    helper function to display stats
-    """
-    print("File size: {}".format(log["file_size"]))
-    for code in sorted(log["code_frequency"]):
-        if log["code_frequency"][code]:
-            print("{}: {}".format(code, log["code_frequency"][code]))
+try:
+    for line in sys.stdin:
+        lines = line.split(" ")
 
+        if len(lines) > 4:
+            code = lines[-2]
+            size = int(lines[-1])
 
-if __name__ == "__main__":
-    regex = re.compile(
-    r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3} - \[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}.\d+\] "GET /projects/260 HTTP/1.1" (.{3}) (\d+)')  # nopep8
+            if code in status_codes.keys():
+                status_codes[code] += 1
 
-    line_count = 0
-    log = {}
-    log["file_size"] = 0
-    log["code_frequency"] = {
-        str(code): 0 for code in [
-            200, 301, 400, 401, 403, 404, 405, 500]}
+            total_size += size
+            total_num += 1
 
-    try:
-        for line in sys.stdin:
-            line = line.strip()
-            match = regex.fullmatch(line)
-            if (match):
-                line_count += 1
-                code = match.group(1)
-                file_size = int(match.group(2))
+        if total_num == 10:
+            total_num = 0
+            print("File size: {}".format(total_size))
 
-                # File size
-                log["file_size"] += file_size
+            for k, v in sorted(status_codes.items()):
+                if v != 0:
+                    print("{}: {}".format(k, v))
 
-                # status code
-                if (code.isdecimal()):
-                    log["code_frequency"][code] += 1
+except Exception:
+    pass
 
-                if (line_count % 10 == 0):
-                    output(log)
-    finally:
-        output(log)
+finally:
+    print("File size: {}".format(total_size))
+
+    for k, v in sorted(status_codes.items()):
+        if v != 0:
+            print("{}: {}".format(k, v))
